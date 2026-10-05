@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI 工具导航 · 分类整合</title>
+<style>
+  :root{
+    --bg:#0b0d12; --card:#151821; --line:#232838; --text:#e6e9ef;
+    --muted:#8b93a5; --accent:#5b8cff; --free:#34d399; --paid:#fbbf24;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; padding:40px 16px 64px;
+    font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:radial-gradient(circle at 15% 0%,#161c2e,#0b0d12 55%);
+    color:var(--text);
+  }
+  .wrap{max-width:1100px;margin:0 auto;}
+  header{margin-bottom:28px;}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:.5px;}
+  .sub{color:var(--muted);font-size:14px;}
+
+  /* ---- 筛选栏 ---- */
+  .filters{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:center;
+    padding:14px 16px; background:var(--card); border:1px solid var(--line);
+    border-radius:14px; margin-bottom:26px;
+  }
+  .filters .label{font-size:13px;color:var(--muted);margin-right:2px;}
+  .chip{
+    border:1px solid var(--line); background:transparent; color:var(--muted);
+    padding:7px 15px; border-radius:999px; font-size:13px; cursor:pointer;
+    transition:all .18s;
+  }
+  .chip:hover{color:var(--text);border-color:#3a4258;}
+  .chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .divider{width:1px;height:22px;background:var(--line);margin:0 6px;}
+
+  /* ---- 工具卡片网格 ---- */
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr));
+    gap:14px;
+  }
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:18px; display:flex; flex-direction:column; gap:8px;
+    text-decoration:none; color:var(--text);
+    transition:transform .16s, border-color .16s, box-shadow .16s;
+    animation:in .2s ease;
+  }
+  @keyframes in{from{opacity:0;transform:translateY(6px);}}
+  .card:hover{
+    transform:translateY(-3px); border-color:#3a4258;
+    box-shadow:0 14px 30px rgba(0,0,0,.35);
+  }
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .card-name{font-size:15px;font-weight:600;line-height:1.3;}
+  .card-url{font-size:11px;color:var(--muted);word-break:break-all;line-height:1.4;}
+  .card-desc{font-size:12.5px;color:var(--muted);line-height:1.55;flex:1;}
+  .card-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;}
+  .tag{
+    font-size:11px;padding:3px 9px;border-radius:999px;
+    background:#1d2230;color:#9aa3b8;border:1px solid #2a3145;
+  }
+  .tag.free{color:var(--free);border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.08);}
+  .tag.paid{color:var(--paid);border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.08);}
+  .tag.both{color:#a78bfa;border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.08);}
+  .empty{
+    grid-column:1/-1;text-align:center;color:var(--muted);
+    padding:60px 0;font-size:14px;
+  }
+  .count{margin:18px 0 0;font-size:12.5px;color:var(--muted);text-align:right;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AI 工具导航</h1>
+    <div class="sub">按「使用类型」与「付费模式」筛选，点击卡片直达官网</div>
+  </header>
+
+  <!-- 筛选栏 -->
+  <div class="filters" id="filters">
+    <span class="label">类型</span>
+    <button class="chip active" data-type="all">全部</button>
+    <button class="chip" data-type="chat">💬 对话</button>
+    <button class="chip" data-type="image">🖼️ 图片</button>
+    <button class="chip" data-type="video">🎬 视频</button>
+    <button class="chip" data-type="write">✍️ 写作</button>
+    <button class="chip" data-type="music">🎵 音乐</button>
+    <button class="chip" data-type="code">💻 编程</button>
+    <button class="chip" data-type="design">🎨 设计</button>
+    <button class="chip" data-type="efficiency">⚡ 效率</button>
+
+    <span class="divider"></span>
+
+    <span class="label">费用</span>
+    <button class="chip active" data-price="all">全部</button>
+    <button class="chip" data-price="free">🟢 免费</button>
+    <button class="chip" data-price="paid">🟡 付费</button>
+    <button class="chip" data-price="both">🟣 免费+付费</button>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="count" id="count"></div>
+</div>
+
+<script>
+/* ============================================================
+   工具数据（可按需增删）
+   type: chat | image | video | write | music | code | design | efficiency
+   price: free | paid | both
+   ============================================================ */
+const TOOLS = [
+  /* ---------- 对话 ---------- */
+  { name:"ChatGPT", url:"https://chat.openai.com", type:"chat", price:"both",
+    desc:"OpenAI 出品，综合能力最均衡的对话式 AI，覆盖写作、编程、分析、图像生成。" },
+  { name:"Claude", url:"https://claude.ai", type:"chat", price:"both",
+    desc:"Anthropic 出品，长文写作与代码预览表现稳定，适合创意写作与代码阅读。" },
+  { name:"Gemini", url:"https://gemini.google.com", type:"chat", price:"both",
+    desc:"Google 出品，生态整合能力强，擅长多模态输入与长视频分析。" },
+  { name:"DeepSeek", url:"https://chat.deepseek.com", type:"chat", price:"free",
+    desc:"国产开源大模型，R1 推理能力突出，日常问答与深度思考完全免费。" },
+  { name:"Kimi", url:"https://kimi.moonshot.cn", type:"chat", price:"free",
+    desc:"月之暗面出品，超长上下文（最高 200 万字），适合阅读长论文、财报与报告。" },
+  { name:"豆包", url:"https://www.doubao.com", type:"chat", price:"free",
+    desc:"字节跳动旗下 AI 助手，中文对话自然，支持生图、识图与语音交互。" },
+  { name:"通义千问", url:"https://tongyi.aliyun.com", type:"chat", price:"free",
+    desc:"阿里巴巴达摩院大模型，代码与数学能力尤为突出，免费使用。" },
+  { name:"文心一言", url:"https://yiyan.baidu.com", type:"chat", price:"free",
+    desc:"百度文心大模型，中文支持友好，深度整合百度生态。" },
+  { name:"讯飞星火", url:"https://xinghuo.xfyun.cn", type:"chat", price:"free",
+    desc:"科大讯飞出品，语音识别与交互见长，教育场景适配较好。" },
+  { name:"Copilot", url:"https://copilot.microsoft.com", type:"chat", price:"free",
+    desc:"微软出品，基于 Edge/Bing/Windows 生态，零成本使用 GPT 能力。" },
+  { name:"Perplexity", url:"https://www.perplexity.ai", type:"chat", price:"both",
+    desc:"AI 搜索引擎，检索结果附来源标注，适合学术与事实核查。" },
+
+  /* ---------- 图片 ---------- */
+  { name:"即梦 AI", url:"https://jimeng.jianying.com/ai-tool/home", type:"image", price:"free",
+    desc:"字节跳动出品，生图、识图、修图一体化，电商图与设计素材生成效果好。" },
+  { name:"造点 AI", url:"https://zaodian.quark.cn", type:"image", price:"free",
+    desc:"阿里夸克旗下创作平台，集成 Midjourney V7 与通义万相，支持生图与生视频。" },
+  { name:"LiblibAI", url:"https://www.liblib.art", type:"image", price:"free",
+    desc:"国内主流 AI 绘画社区，基于 Stable Diffusion 的在线生图与模型分享平台。" },
+  { name:"堆友", url:"https://d.design", type:"image", price:"free",
+    desc:"阿里设计团队出品，AI 绘画与设计素材生成，适合电商与运营场景。" },
+  { name:"Tensor.Art", url:"https://tensor.art", type:"image", price:"both",
+    desc:"基于 Stable Diffusion 的在线生图平台，支持多设备访问，免费基础功能可用。" },
+  { name:"Midjourney", url:"https://www.midjourney.com", type:"image", price:"paid",
+    desc:"艺术风格突出的文生图工具，高质量插画、海报与艺术创作首选，需付费订阅。" },
+  { name:"Stable Diffusion", url:"https://stability.ai", type:"image", price:"free",
+    desc:"开源文生图模型，可本地部署，精确控制画面，完全免费使用。" },
+  { name:"Adobe Firefly", url:"https://firefly.adobe.com", type:"image", price:"both",
+    desc:"Adobe 出品，文生图与图像编辑，与 Creative Cloud 深度集成。" },
+
+  /* ---------- 视频 ---------- */
+  { name:"可灵 AI", url:"https://klingai.kuaishou.com", type:"video", price:"both",
+    desc:"快手出品，视频生成质量高，支持文生视频与图生视频，免费额度可用。" },
+  { name:"海螺 AI", url:"https://hailuoai.com/video", type:"video", price:"both",
+    desc:" MiniMax 旗下视频生成模型，输出质量稳定，适合短视频与创意内容制作。" },
+  { name:"Sora", url:"https://sora.com", type:"video", price:"paid",
+    desc:"OpenAI 文生视频大模型，生成逼真视频，需 ChatGPT 付费订阅使用。" },
+  { name:"通义万相", url:"https://tongyi.aliyun.com/wanxiang", type:"video", price:"free",
+    desc:"阿里云多模态生成模型，支持文生视频与图生视频，免费体验。" },
+  { name:"TeleStudio", url:"https://teleai.com.cn", type:"video", price:"free",
+    desc:"中国电信全链路 AI 视频创作平台，限时免费，从创意到高清成片一站式生成。" },
+  { name:"SkyReels", url:"https://skyreels.ai", type:"video", price:"both",
+    desc:"昆仑万维 AI 视频创作平台，提供图片、视频、数字人、音乐等创作方式。" },
+  { name:"Pika", url:"https://pika.art", type:"video", price:"both",
+    desc:"国际知名视频生成大模型，创意动画与短视频生成，有免费额度。" },
+
+  /* ---------- 写作 ---------- */
+  { name:"Notion AI", url:"https://notion.so/product/ai", type:"write", price:"paid",
+    desc:"笔记助手，文档润色、自动摘要、翻译，深度集成 Notion 工作流。" },
+  { name:"Jasper", url:"https://www.jasper.ai", type:"write", price:"paid",
+    desc:"面向营销与内容团队的 AI 写作工具，博客、广告文案、社交媒体内容生成。" },
+  { name:"Copy.ai", url:"https://www.copy.ai", type:"write", price:"both",
+    desc:"AI 营销文案生成，适合广告、邮件与社交媒体推广内容。" },
+  { name:"WPS 灵犀", url:"https://lingxi.wps.cn", type:"write", price:"free",
+    desc:"WPS 内置 AI 助手，接入 DeepSeek R1，辅助写作、汇报与研读。" },
+  { name:"QuillBot", url:"https://quillbot.com", type:"write", price:"both",
+    desc:"AI 改写与摘要工具，语法检查、改写润色、文献摘要一站式处理。" },
+
+  /* ---------- 音乐 ---------- */
+  { name:"Suno", url:"https://suno.com", type:"music", price:"both",
+    desc:"AI 音乐生成标杆，输入提示词即可生成完整歌曲，含人声与伴奏。" },
+  { name:"海绵音乐", url:"https://www.haimianmusic.com", type:"music", price:"free",
+    desc:"字节跳动旗下 AI 音乐创作平台，输入灵感或自定义歌词即可生成音乐。" },
+  { name:"Mureka", url:"https://www.mureka.ai", type:"music", price:"both",
+    desc:"昆仑万维 AI 音乐生成平台，编曲能力与音质质感表现突出。" },
+  { name:"Eleven Music", url:"https://elevenlabs.io/music", type:"music", price:"both",
+    desc:"ElevenLabs 出品，自然语言提示词生成专业级音乐，支持多语言人声。" },
+
+  /* ---------- 编程 ---------- */
+  { name:"GitHub Copilot", url:"https://github.com/features/copilot", type:"code", price:"paid",
+    desc:"程序员必备代码补全工具，实时生成代码建议，深度集成主流 IDE。" },
+  { name:"Cursor", url:"https://cursor.sh", type:"code", price:"both",
+    desc:"AI 代码编辑器，可在代码库中对话，理解项目上下文进行精准修改。" },
+  { name:"扣子 (Coze)", url:"https://coze.cn", type:"code", price:"free",
+    desc:"字节跳动低代码智能体平台，自然语言搭建 AI 机器人，免费使用。" },
+  { name:"快马 InsCode", url:"https://inscode.net", type:"code", price:"free",
+    desc:"CSDN 出品，自然语言描述需求即可生成项目代码，支持多语言与技术栈。" },
+  { name:"CodeFlicker", url:"https://codeflicker.ai", type:"code", price:"free",
+    desc:"快手智能开发工具，KAT-Coder-Air 模型面向所有用户免费使用。" },
+  { name:"Bolt.new", url:"https://bolt.new", type:"code", price:"both",
+    desc:"浏览器中的 AI 全栈开发工具，提示词生成、编辑并部署完整 Web 应用。" },
+
+  /* ---------- 设计 ---------- */
+  { name:"Canva", url:"https://www.canva.com", type:"design", price:"both",
+    desc:"在线设计平台，Magic Design 等 AI 功能辅助生成海报、简报与视频。" },
+  { name:"Figma", url:"https://www.figma.com", type:"design", price:"both",
+    desc:"主流 UI 设计工具，集成 AI 辅助设计功能，团队协作能力强。" },
+  { name:"Lovart", url:"https://www.lovart.ai", type:"design", price:"free",
+    desc:"AI 设计智能体，可生成版面与 UI 设计，适合日常创作与快速原型。" },
+  { name:"Gamma", url:"https://gamma.app", type:"design", price:"both",
+    desc:"AI 生成 PPT 工具，一句话即可生成精美演示文稿。" },
+
+  /* ---------- 效率 ---------- */
+  { name:"秘塔搜索", url:"https://metaso.cn", type:"efficiency", price:"free",
+    desc:"AI 搜索工具，无广告直达答案，支持学术搜索与精准信息检索。" },
+  { name:"通义听悟", url:"https://tingwu.aliyun.com", type:"efficiency", price:"free",
+    desc:"阿里语音转文字工具，会议纪要整理、视频转写，免费使用。" },
+  { name:"扣子空间", url:"https://space.coze.cn", type:"efficiency", price:"free",
+    desc:"字节跳动 AI Agent 平台，与智能体协同工作，实现高效办公自动化。" },
+  { name:"腾讯元宝", url:"https://hunyuan.tencent.com/bot", type:"efficiency", price:"free",
+    desc:"腾讯 AI 助手，接入 DeepSeek R1 与混元模型，支持对话、文生图、文生视频。" },
+];
+
+/* ============================================================
+   渲染逻辑
+   ============================================================ */
+const grid = document.getElementById('grid');
+const countEl = document.getElementById('count');
+let activeType = 'all';
+let activePrice = 'all';
+
+const TYPE_LABEL = {
+  chat:'对话', image:'图片', video:'视频', write:'写作',
+  music:'音乐', code:'编程', design:'设计', efficiency:'效率'
+};
+
+const PRICE_LABEL = { free:'免费', paid:'付费', both:'免费+付费' };
+const PRICE_CLASS = { free:'free', paid:'paid', both:'both' };
+
+function render(){
+  const list = TOOLS.filter(t =>
+    (activeType === 'all' || t.type === activeType) &&
+    (activePrice === 'all' || t.price === activePrice)
+  );
+
+  grid.innerHTML = list.length ? list.map(t => `
+    <a class="card" href="${t.url}" target="_blank" rel="noopener">
+      <div class="card-top">
+        <span class="card-name">${t.name}</span>
+      </div>
+      <span class="card-url">${t.url.replace(/^https?:\/\//,'').replace(/\/$/,'')}</span>
+      <span class="card-desc">${t.desc}</span>
+      <div class="card-tags">
+        <span class="tag">${TYPE_LABEL[t.type] || t.type}</span>
+        <span class="tag ${PRICE_CLASS[t.price]}">${PRICE_LABEL[t.price]}</span>
+      </div>
+    </a>
+  `).join('') : '<div class="empty">没有符合当前筛选条件的工具</div>';
+
+  countEl.textContent = `共 ${list.length} 个工具`;
+}
+
+/* ---- 类型筛选 ---- */
+document.querySelectorAll('#filters [data-type]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeType = btn.dataset.type;
+    document.querySelectorAll('#filters [data-type]').forEach(b =>
+      b.classList.toggle('active', b === btn)
+    );
+    render();
+  });
+});
+
+/* ---- 费用筛选 ---- */
+document.querySelectorAll('#filters [data-price]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activePrice = btn.dataset.price;
+    document.querySelectorAll('#filters [data-price]').forEach(b =>
+      b.classList.toggle('active', b === btn)
+    );
+    render();
+  });
+});
+
+render();
+</script>
+</body>
+</html>
